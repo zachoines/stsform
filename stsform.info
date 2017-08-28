@@ -1,0 +1,6 @@
+name = Quick Capture 2 STS WebForm Extension
+description = Student Tracking System Web Forms Quick Capture
+configure = admin/config/system/stsform
+core = 7.x
+dependencies[] = webform
+package = Webform

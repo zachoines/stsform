@@ -1,0 +1,198 @@
+<?php
+
+/*
+* Implements hook_form_menu(). 
+*/ 
+function stsform_menu() {
+  $items = array();
+
+  $items['node/%webform_menu/webform/forwarding'] = array(
+    'title' => 'Forwarding settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('stsform_configure_form', 1),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'includes/stsform.forwarding.inc',
+    'weight' => 6,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+   // Admin Settings.
+  $items['admin/config/system/stsform'] = array(
+    'title' => 'Stsform settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('stsform_admin_settings_form'),
+    'access arguments' => array('administer site configuration'),
+    'description' => t('Global configuration of webform functionality.'),
+    'file' => 'includes/stsform.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  
+	return $items;
+} 
+ 
+/* 
+* Implements hook_form_alter().
+*/ 
+function stsform_form_alter(&$form, &$form_state, $form_id) {
+  $node = $form['#node'];
+	$record = stsform_get_record($node->nid);
+  $defaultUrl =  trim(variable_get('stsform_defaultURL'));
+	$defaultStatus = variable_get('stsform_defaultStatus');
+  
+
+  if ($form_id === 'stsform_configure_form') {
+
+    if (is_object($record)) {  
+      
+        //pull in what's saved in database       
+        $form['#validate'][] = 'stsform_form_validate';
+        $form['stsform_ForwardingSettings']['stsform_status']['#default_value'] = $record->forwarding;
+        $form['stsform_ForwardingSettings']['stsform_check']['stsform_URL']['#default_value'] = $record->url;
+        $form_state['values']['stsform_status'] = $record->forwarding;
+
+        //fill in default url if forwarding is off
+        if(($defaultStatus == 1) && ($form_state['values']['stsform_status'] == 0)){
+            $form['stsform_ForwardingSettings']['stsform_check']['stsform_URL']['#default_value'] = $defaultUrl;
+        }   
+        
+        else if(($defaultStatus == 0) && ($form_state['values']['stsform_status'] == 1)) {
+            $form_state['values']['stsform_URL'] = "";
+            $form['stsform_ForwardingSettings']['stsform_check']['stsform_URL']['#default_value'] = "";
+        }
+    } else {
+
+        //if record does not exist, fill in depending on whether default forwarding is on.
+        if($defaultStatus == 1) {
+            $form['stsform_ForwardingSettings']['stsform_check']['stsform_URL']['#default_value'] = $defaultUrl;
+        } 
+        
+        else if($defaultStatus == 0) {
+            $form['stsform_ForwardingSettings']['stsform_check']['stsform_URL']['#default_value'] = "";
+        }
+    }
+  }
+}
+
+/*
+*	  Load a record
+*/
+function stsform_get_record($nid) {
+	$query = db_select('stsform', 's')
+		->fields('s', array('nid', 'forwarding', 'url'))
+		->condition('nid', $nid);
+		$record = $query->execute()->fetch();
+		return $record;
+}
+
+/*
+*	  Save a record
+*/
+function stsform_set_record($record) {
+  db_merge('stsform')
+  
+  ->insertFields(array(
+      'nid' => $record->nid,
+      'forwarding' => $record->forwarding,
+      'url' => $record->url,
+  ))
+  ->updateFields(array(
+    'forwarding' => $record->forwarding,
+    'url' => $record->url,
+  ))
+  ->key(array('nid' => $record->nid))
+  ->execute(); 
+}
+
+
+function MODULE_entity_property_info() {
+  $info = array();
+  $properties = &$info['node']['properties'];
+
+  $properties['nid'] = array(
+    'label' => t("Content ID"), 
+    'type' => 'integer', 
+    'description' => t("The unique content ID."), 
+  );
+  return $info;
+}
+
+function get_node_permalink($node) {
+  $url = url(drupal_lookup_path('alias', 'node/' . $node->nid), array('absolute' => true));
+  return $url;
+}
+
+function flatten(array $array) {
+    $return = array();
+    array_walk_recursive($array, function($a) use (&$return) { $return[] = $a; });
+    return $return;
+}
+
+/**
+ * webform hook run after submission
+ */
+function stsform_webform_submission_insert($node, $submission) {
+	$nid = $node->nid;
+	$sid = $submission->sid;
+	//$keys = $node->webform['components'];
+	
+	$mapping = _custom_webform_component_mapping($node);
+	
+	// Build the URL/query for STS form.
+  $data = http_build_query($_POST, '', '&');
+
+  dpm("data object");
+  dpm($data);
+  dpm("POST object");
+  dpm($_POST);
+  $add_node = array(
+		'node' => $node->nid, 
+		'HTTP_REFERER' => $_SERVER['HTTP_REFERER'], 
+		'IP_ADDRESS' => $_SERVER['REMOTE_ADDR'],
+		'Permalink' => get_node_permalink($node),
+		'Page' => get_node_permalink(menu_get_object()),
+	);
+  $data = $data.'&'.http_build_query($add_node, '', '&');
+
+
+  
+  //Go and fetch the url forwarding configuration for this nid
+  $record = stsform_get_record($nid);
+   
+  //Set up options for drupal_http_request
+  $options = array
+  (
+    'method' => 'POST',
+    'data' =>  $data,
+    'timeout' => 15.0,
+    'headers' => array('Content-Type' => 'application/x-www-form-urlencoded'),
+  );
+
+  //if there is a config
+  if (is_object($record)) {
+    $forwarding_enabled = $record->forwarding;
+		$url = $record->url;
+      
+    //Check if forwarding is enabled and send the POST request
+    if ($forwarding_enabled == 1) {
+      $response = drupal_http_request($url, $options);
+    }
+  }
+}
+
+
+/**
+ * Function to convert webform submissions into a nicely-mapped array.
+ *
+ * @see http://www.drupalcoder.com/story/678-additional-processing-in-drupals-webform-3-module
+ */
+function _custom_webform_component_mapping($node) {
+  $mapping = array();
+  $components = $node->webform['components'];
+  foreach ($components as $i => $component) {
+    $key = $component['form_key'];
+    $mapping[$key] = $i;
+  }
+  return $mapping;
+}
+
+

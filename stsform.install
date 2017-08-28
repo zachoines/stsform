@@ -1,0 +1,44 @@
+<?php
+
+/*
+ *Implement hook_schema().
+ */
+  
+ //Creates a database table entry to save forwarding settings
+ function stsform_schema() {
+	 $schema = array();
+	 $schema['stsform'] = array(
+		 'description' => 'Forwarding Configuration Settings',
+		 'fields' => array(
+			 'nid' => array(
+				'description' => 'The primary identifier for a node.',
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => TRUE),
+			'url' => array(
+				'description' => 'The url to foward to',
+				'type' => 'varchar',
+				'length' => 1000,
+				'not null' => TRUE,
+				'default' => ''),
+			'forwarding' => array(
+				'description' => 'Boolean which indicates whether or not forwarding is on.',
+				'type' => 'int',
+				'not null' => TRUE,
+				'default' => 0),
+			),
+
+		'primary key' => array('nid'),
+	 );
+	 return $schema;
+ }
+
+ /*
+ *Implements hook_update_N().
+ */
+ 
+/*can run http://{your_site_name}/update.php to then run this update
+ function, just make sure to increase the function number by one each time you whant an update */
+function stsform_update_7000() {
+  drupal_install_schema('stsform');
+}
