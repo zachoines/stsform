@@ -22,11 +22,12 @@ function stsform_configure_form($form, &$form_state, $node) {
 	 		'visible' => array(
 	 			':input[name="stsform_status"]' => array('checked' => TRUE),
 			),	
-	 	),
+		),
+	);
 	$form['stsform_ForwardingSettings']['stsform_check']['stsform_URL'] = array(
 	 	'#type' => 'textfield',
     	'#title' => t('Enter URL Name'),
-	));
+	);
 	$form['#submit'] = array(
 		'stsform_form_submit',
 	);

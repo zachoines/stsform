@@ -37,7 +37,7 @@ function stsform_form_alter(&$form, &$form_state, $form_id) {
   if ($form_id != "stsform_configure_form") {
     return;
   }
-  
+
   $node = $form['#node'];
 	$record = stsform_get_record($node->nid);
   $defaultUrl =  trim(variable_get('stsform_defaultURL'));
@@ -135,7 +135,16 @@ function flatten(array $array) {
  * webform hook run after submission
  */
 function stsform_webform_submission_insert($node, $submission) {
-	$nid = $node->nid;
+  //Create a custom hook to be called by other modules 
+  //pass an associative array of additional values to be sent along in the POST object
+  $content = array();
+  module_invoke_all('stsform_insert_additional_post_variables', $content);
+
+  //TODO test this in another module
+  $content[] = 'Line 2';
+  $content[] = 'Another line';
+  
+  $nid = $node->nid;
 	$sid = $submission->sid;
 	//$keys = $node->webform['components'];
 	
@@ -144,10 +153,6 @@ function stsform_webform_submission_insert($node, $submission) {
 	// Build the URL/query for STS form.
   $data = http_build_query($_POST, '', '&');
 
-  dpm("data object");
-  dpm($data);
-  dpm("POST object");
-  dpm($_POST);
   $add_node = array(
 		'node' => $node->nid, 
 		'HTTP_REFERER' => $_SERVER['HTTP_REFERER'], 
@@ -155,10 +160,17 @@ function stsform_webform_submission_insert($node, $submission) {
 		'Permalink' => get_node_permalink($node),
 		'Page' => get_node_permalink(menu_get_object()),
 	);
+  
+  //Build our query data
   $data = $data.'&'.http_build_query($add_node, '', '&');
 
+  //if there was anything added by external modules
+  if(sizeof($content) > 0) {
+    $data = $data.'&'.http_build_query($content, '', '&');
+    dpm('data was successfully added');
+    dpm($data);
+  }
 
-  
   //Go and fetch the url forwarding configuration for this nid
   $record = stsform_get_record($nid);
    
