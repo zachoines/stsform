@@ -15,7 +15,7 @@ function stsform_menu() {
     'weight' => 6,
     'type' => MENU_LOCAL_TASK,
   );
-
+ 
    // Admin Settings.
   $items['admin/config/system/stsform'] = array(
     'title' => 'Stsform settings',
@@ -34,6 +34,10 @@ function stsform_menu() {
 * Implements hook_form_alter().
 */ 
 function stsform_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id != "stsform_configure_form") {
+    return;
+  }
+  
   $node = $form['#node'];
 	$record = stsform_get_record($node->nid);
   $defaultUrl =  trim(variable_get('stsform_defaultURL'));

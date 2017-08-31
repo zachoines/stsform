@@ -23,15 +23,17 @@ function stsform_configure_form($form, &$form_state, $node) {
 	 			':input[name="stsform_status"]' => array('checked' => TRUE),
 			),	
 	 	),
-	);
 	$form['stsform_ForwardingSettings']['stsform_check']['stsform_URL'] = array(
 	 	'#type' => 'textfield',
     	'#title' => t('Enter URL Name'),
-	);
+	));
 	$form['#submit'] = array(
 		'stsform_form_submit',
 	);
+
+	//This will be sent along with the POST 
 	$form['#node'] = $node;
+
 	$form['nid'] = array(
 		'#type' => 'value',
 		'#value' => $node->nid,
