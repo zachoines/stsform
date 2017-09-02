@@ -138,12 +138,17 @@ function stsform_webform_submission_insert($node, $submission) {
   //Create a custom hook to be called by other modules 
   //pass an associative array of additional values to be sent along in the POST object
   $content = array();
-  module_invoke_all('stsform_insert_additional_post_variables', $content);
 
-  //TODO test this in another module
-  $content[] = 'Line 2';
-  $content[] = 'Another line';
-  
+  //TODO allow for multiple modules (more than one at once)to append additional data to the POST object 
+  drupal_alter('insert_additional_post_variables', $content);
+
+  // foreach (module_implements('insert_additional_post_variables_alter') as $module) {
+  //   $function = $module . '_insert_additional_post_variables_alter';
+    
+  //   $function($content);
+    
+  // }
+
   $nid = $node->nid;
 	$sid = $submission->sid;
 	//$keys = $node->webform['components'];
@@ -167,8 +172,6 @@ function stsform_webform_submission_insert($node, $submission) {
   //if there was anything added by external modules
   if(sizeof($content) > 0) {
     $data = $data.'&'.http_build_query($content, '', '&');
-    dpm('data was successfully added');
-    dpm($data);
   }
 
   //Go and fetch the url forwarding configuration for this nid
